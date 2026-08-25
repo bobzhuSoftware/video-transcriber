@@ -12,8 +12,10 @@ import threading
 import time
 
 HOST = "127.0.0.1"
-PORT = int(os.environ.get("VT_PORT", "8000"))
-URL = f"http://{HOST}:{PORT}"
+# Pin the port only when VT_PORT is set; otherwise a free one is chosen at start_backend().
+_PORT_OVERRIDE = os.environ.get("VT_PORT")
+PORT: int | None = int(_PORT_OVERRIDE) if _PORT_OVERRIDE else None
+URL = f"http://{HOST}:{PORT}" if PORT else ""
 
 _REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
 _VENV_PYTHON = os.path.join(_REPO_ROOT, ".venv", "Scripts", "python.exe")
@@ -28,9 +30,31 @@ _lock = threading.Lock()
 
 
 def port_open() -> bool:
+    if PORT is None:
+        return False
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.settimeout(0.4)
         return s.connect_ex((HOST, PORT)) == 0
+
+
+def _find_free_port(start: int = 8000, max_steps: int = 100) -> int:
+    """Return the first port at/above ``start`` that nothing is bound to."""
+    for candidate in range(start, start + max_steps + 1):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            try:
+                s.bind((HOST, candidate))
+                return candidate
+            except OSError:
+                continue
+    raise RuntimeError(f"No free port available in range {start}-{start + max_steps}")
+
+
+def _resolve_port() -> None:
+    """Pick a free port once (unless VT_PORT pinned it) and cache PORT/URL."""
+    global PORT, URL
+    if PORT is None:
+        PORT = _find_free_port()
+    URL = f"http://{HOST}:{PORT}"
 
 
 def ensure_frontend_built() -> None:
@@ -50,6 +74,7 @@ def start_backend() -> None:
     with _lock:
         if backend_running():
             return
+        _resolve_port()
         _backend_proc = subprocess.Popen(
             [PYTHON, "-m", "uvicorn", "server:app", "--host", HOST, "--port", str(PORT)],
             cwd=_REPO_ROOT,
