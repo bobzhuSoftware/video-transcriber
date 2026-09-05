@@ -133,6 +133,15 @@ function HomePage({ onSelectTool, token }) {
       tags: ['Excel', 'openpyxl', '脚本', '查找'],
     },
     {
+      id: 'filecompare',
+      category: 'scripts',
+      icon: '🔍',
+      title: '文件对比',
+      description:
+        '上传两个纯文本文件，并排（side-by-side）查看逐行差异，高亮显示新增、删除与修改的内容。',
+      tags: ['Diff', '对比', '文本', 'difflib'],
+    },
+    {
       id: 'timezone',
       icon: '🌍',
       title: '时区转换',

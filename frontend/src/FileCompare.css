@@ -1,0 +1,348 @@
+.fc-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 24px 16px 64px;
+}
+
+.fc-title {
+  margin: 0 0 4px;
+  font-size: 1.6rem;
+}
+
+.fc-subtitle {
+  margin: 0 0 20px;
+  color: #666;
+  font-size: 0.95rem;
+}
+
+.fc-pickers {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.fc-drop {
+  flex: 1 1 260px;
+  border: 2px dashed #c4c4c4;
+  border-radius: 10px;
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  background: #fafafa;
+}
+
+.fc-drop:hover,
+.fc-drop--over {
+  border-color: #4a90e2;
+  background: #f0f6ff;
+}
+
+.fc-drop-label {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.fc-drop-name {
+  color: #888;
+  font-size: 0.9rem;
+  word-break: break-all;
+}
+
+.fc-actions {
+  margin: 20px 0;
+}
+
+.fc-btn {
+  background: #4a90e2;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-size: 1rem;
+  cursor: pointer;
+}
+
+.fc-btn:disabled {
+  background: #b9c9dc;
+  cursor: not-allowed;
+}
+
+.fc-error {
+  color: #c0392b;
+  background: #fdecea;
+  border: 1px solid #f5c6cb;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+}
+
+.fc-summary {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.fc-badge {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.fc-badge--equal { background: #e6f4ea; color: #1e7e34; }
+.fc-badge--add   { background: #e6f4ea; color: #1e7e34; }
+.fc-badge--del   { background: #fdecea; color: #c0392b; }
+.fc-badge--chg   { background: #fff6e0; color: #b8860b; }
+.fc-badge--warn  { background: #eee; color: #666; }
+.fc-badge--json  { background: #e7f0ff; color: #1f5fb8; }
+
+.fc-diff {
+  display: flex;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  overflow: hidden;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 0.85rem;
+}
+
+.fc-diff-head {
+  display: flex;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #f5f5f5;
+  border-bottom: 1px solid #e0e0e0;
+  font-weight: 600;
+}
+
+.fc-col-head {
+  flex: 1;
+  padding: 8px 12px;
+  word-break: break-all;
+}
+
+.fc-col-head:first-child {
+  border-right: 1px solid #e0e0e0;
+}
+
+.fc-diff-body {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  max-height: 70vh;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;        /* Firefox: hide native scrollbar */
+  -ms-overflow-style: none;     /* legacy Edge */
+}
+
+/* Hide native scrollbar (WebKit/Blink) — the minimap is the scroll indicator */
+.fc-diff-body::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* Minimap: overview strip with a draggable viewport window and a tick per
+   diff block. Doubles as the scrollbar. */
+.fc-minimap {
+  position: relative;
+  flex: 0 0 14px;
+  background: #f0f2f5;
+  border-left: 1px solid #e0e0e0;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+/* Draggable window showing the currently visible portion of the content */
+.fc-mm-viewport {
+  position: absolute;
+  left: 0;
+  right: 0;
+  min-height: 18px;
+  background: rgba(74, 144, 226, 0.16);
+  border: 1px solid rgba(74, 144, 226, 0.55);
+  border-radius: 3px;
+  cursor: grab;
+}
+
+.fc-mm-viewport:active {
+  cursor: grabbing;
+  background: rgba(74, 144, 226, 0.24);
+}
+
+.fc-mm-tick {
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  height: 4px;
+  margin-top: -2px;
+  padding: 0;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+}
+
+.fc-mm-tick--replace { background: #e0a800; }
+.fc-mm-tick--insert  { background: #28a745; }
+.fc-mm-tick--delete  { background: #dc3545; }
+
+.fc-mm-tick--active {
+  left: 0;
+  right: 0;
+  height: 6px;
+  box-shadow: 0 0 0 1px #4a90e2;
+}
+
+.fc-row {
+  display: flex;
+}
+
+.fc-cell {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
+.fc-cell--left {
+  border-right: 1px solid #e0e0e0;
+}
+
+.fc-ln {
+  flex: 0 0 44px;
+  text-align: right;
+  padding: 2px 8px;
+  color: #999;
+  user-select: none;
+  border-right: 1px solid #eee;
+  background: rgba(0, 0, 0, 0.02);
+}
+
+.fc-text {
+  flex: 1;
+  margin: 0;
+  padding: 2px 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  min-width: 0;
+}
+
+/* Row colouring */
+.fc-row--insert .fc-cell--right { background: #e6ffed; }
+.fc-row--delete .fc-cell--left  { background: #ffeef0; }
+.fc-row--replace .fc-cell--left  { background: #fff6e0; }
+.fc-row--replace .fc-cell--right { background: #fff6e0; }
+.fc-row--insert .fc-cell--left  { background: #fafafa; }
+.fc-row--delete .fc-cell--right { background: #fafafa; }
+
+/* Toolbar: only-diff toggle + prev/next navigation */
+.fc-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.fc-toolbar-left {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.fc-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  user-select: none;
+}
+
+.fc-nav {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fc-nav-btn {
+  background: #fff;
+  border: 1px solid #cfd8e3;
+  border-radius: 6px;
+  padding: 5px 12px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.fc-nav-btn:hover:not(:disabled) {
+  border-color: #4a90e2;
+  color: #4a90e2;
+}
+
+.fc-nav-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.fc-nav-count {
+  font-size: 0.85rem;
+  color: #666;
+  min-width: 48px;
+  text-align: center;
+}
+
+/* Collapsed run of identical lines (click to expand) */
+.fc-gap {
+  display: block;
+  width: 100%;
+  padding: 4px 12px;
+  text-align: center;
+  color: #4a90e2;
+  background: #fafbfc;
+  border: none;
+  border-top: 1px solid #eee;
+  border-bottom: 1px solid #eee;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.fc-gap:hover {
+  background: #eef4fc;
+}
+
+/* Inline character-level highlight inside a changed line */
+.fc-ch {
+  border-radius: 2px;
+  padding: 0 1px;
+  color: inherit;
+}
+
+.fc-ch--left  { background: #f2a9af; }
+.fc-ch--right { background: #8ee6a3; }
+
+/* Insertion/deletion point marker on the side that has no corresponding text */
+.fc-caret {
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  vertical-align: text-bottom;
+  margin: 0 -1px;
+  border-radius: 1px;
+}
+
+/* Caret on the left = text was inserted on the right (green); on the right =
+   text was deleted from the left (red). */
+.fc-caret--left  { background: #34c759; }
+.fc-caret--right { background: #e0464f; }
+
+/* Currently focused diff block (via prev/next navigation) */
+.fc-row--active {
+  outline: 2px solid #4a90e2;
+  outline-offset: -2px;
+}

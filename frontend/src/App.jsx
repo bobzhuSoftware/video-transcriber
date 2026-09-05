@@ -19,6 +19,7 @@ import ThreadsDownload from './ThreadsDownload'
 import AudioRecorder from './AudioRecorder'
 import ScreenRecorder from './ScreenRecorder'
 import ExcelSearch from './ExcelSearch'
+import FileCompare from './FileCompare'
 import SessionReader from './SessionReader'
 import SubtitleProcessor from './SubtitleProcessor'
 import TimezoneConverter from './TimezoneConverter'
@@ -211,6 +212,7 @@ function App() {
       {currentTool === 'audio' && (<AudioRecorder token={token} onAuthError={handleLogout} />)}
       {currentTool === 'screen' && (<ScreenRecorder token={token} onAuthError={handleLogout} />)}
       {currentTool === 'excelsearch' && (<ExcelSearch token={token} onAuthError={handleLogout} />)}
+      {currentTool === 'filecompare' && (<FileCompare token={token} onAuthError={handleLogout} />)}
       {currentTool === 'sessionreader' && (<SessionReader token={token} onAuthError={handleLogout} />)}
       {currentTool === 'subtitle' && (<SubtitleProcessor token={token} onAuthError={handleLogout} />)}
       {currentTool === 'timezone' && (<TimezoneConverter token={token} onAuthError={handleLogout} />)}

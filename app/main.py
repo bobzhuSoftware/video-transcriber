@@ -14,6 +14,7 @@ from app.core.auth import router as auth_router
 from app.routers.app_control import router as app_control_router
 from app.routers.audio import router as audio_router
 from app.routers.excel import router as excel_router
+from app.routers.filecompare import router as filecompare_router
 from app.routers.book import router as book_router
 from app.routers.copilot_chat import router as copilot_chat_router
 from app.routers.discord import router as discord_router
@@ -40,6 +41,7 @@ app.include_router(auth_router)
 app.include_router(app_control_router)
 app.include_router(audio_router)
 app.include_router(excel_router)
+app.include_router(filecompare_router)
 app.include_router(book_router)
 app.include_router(copilot_chat_router)
 app.include_router(discord_router)
