@@ -176,7 +176,7 @@ function App() {
         </div>
       </div>
 
-      {currentTool === null && <HomePage onSelectTool={setCurrentTool} />}
+      {currentTool === null && <HomePage onSelectTool={setCurrentTool} token={token} />}
       {currentTool === 'transcript' && (
         <VideoTranscript
           token={token}

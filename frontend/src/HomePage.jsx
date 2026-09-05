@@ -1,8 +1,23 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 
-function HomePage({ onSelectTool }) {
+// Built-in categories used when the user hasn't customised their layout yet.
+const BUILTIN_CATEGORIES = [
+  { id: 'tools', label: '工具' },
+  { id: 'scripts', label: '脚本工具' },
+]
+
+// Stable fallback id for tools without an explicit assignment. Must NOT depend
+// on category order, otherwise reordering categories would drag unassigned tools.
+const DEFAULT_CATEGORY_ID = 'tools'
+
+function HomePage({ onSelectTool, token }) {
   const [query, setQuery] = useState('')
   const [activeCat, setActiveCat] = useState('tools')
+  const [categories, setCategories] = useState(BUILTIN_CATEGORIES)
+  const [assignments, setAssignments] = useState({}) // toolId -> categoryId
+  const [editMode, setEditMode] = useState(false)
+  const [dragToolId, setDragToolId] = useState(null)
+  const [dropCat, setDropCat] = useState(null)
   const tools = [
     {
       id: 'transcript',
@@ -136,15 +151,103 @@ function HomePage({ onSelectTool }) {
   ]
 
   // 分区定义：现有功能归入「工具」，脚本类工具放入「脚本工具」。
-  // 新增脚本工具时，给该 tool 对象加 category: 'scripts' 即可。
-  const categories = [
-    { id: 'tools', label: '工具' },
-    {
-      id: 'scripts',
-      label: '脚本工具',
-      emptyHint: '脚本类工具将放在这里（例如 Excel ProcessID 交叉比对）。',
-    },
-  ]
+  // 新增脚本工具时，给该 tool 对象加 category: 'scripts' 即可（作为默认归类）。
+  const emptyHints = {
+    scripts: '脚本类工具将放在这里（例如 Excel ProcessID 交叉比对）。',
+  }
+
+  // Load the user's saved layout on mount.
+  useEffect(() => {
+    if (!token) return
+    fetch('/api/home-layout', { headers: { Authorization: `Bearer ${token}` } })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data) return
+        if (Array.isArray(data.categories) && data.categories.length > 0) {
+          setCategories(data.categories)
+        }
+        if (data.assignments && typeof data.assignments === 'object') {
+          setAssignments(data.assignments)
+        }
+      })
+      .catch(() => {})
+  }, [token])
+
+  // Persist the layout to the backend (fire-and-forget).
+  const persist = (nextCategories, nextAssignments) => {
+    if (!token) return
+    fetch('/api/home-layout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ categories: nextCategories, assignments: nextAssignments }),
+    }).catch(() => {})
+  }
+
+  const catIds = useMemo(() => new Set(categories.map((c) => c.id)), [categories])
+
+  // Resolve which category a tool belongs to, falling back gracefully.
+  const resolveCat = (tool) => {
+    const a = assignments[tool.id]
+    if (a && catIds.has(a)) return a
+    if (tool.category && catIds.has(tool.category)) return tool.category
+    if (catIds.has(DEFAULT_CATEGORY_ID)) return DEFAULT_CATEGORY_ID
+    return categories[0]?.id
+  }
+
+  // Give every tool an explicit assignment so reordering categories can never
+  // move unassigned tools around (they'd otherwise follow the positional fallback).
+  const enterEditMode = () => {
+    const next = { ...assignments }
+    tools.forEach((t) => {
+      if (!next[t.id]) next[t.id] = resolveCat(t)
+    })
+    setAssignments(next)
+    persist(categories, next)
+    setEditMode(true)
+    setQuery('')
+  }
+
+  // Keep the active tab valid if categories change.
+  useEffect(() => {
+    if (categories.length && !catIds.has(activeCat)) {
+      setActiveCat(categories[0].id)
+    }
+  }, [categories, catIds, activeCat])
+
+  // While dragging a card, auto-scroll the window near the top/bottom edges so a
+  // card in the middle of a long category can still reach any other category.
+  useEffect(() => {
+    if (!dragToolId) return
+    const EDGE = 100 // px from a viewport edge where auto-scroll kicks in
+    const MAX_SPEED = 20 // px per frame at the very edge
+    let speed = 0
+    let raf = 0
+    const step = () => {
+      if (speed === 0) {
+        raf = 0
+        return
+      }
+      window.scrollBy(0, speed)
+      raf = requestAnimationFrame(step)
+    }
+    const onDragOver = (e) => {
+      const y = e.clientY
+      const h = window.innerHeight
+      if (y < EDGE) {
+        speed = -Math.ceil(((EDGE - y) / EDGE) * MAX_SPEED)
+      } else if (y > h - EDGE) {
+        speed = Math.ceil(((y - (h - EDGE)) / EDGE) * MAX_SPEED)
+      } else {
+        speed = 0
+      }
+      if (speed !== 0 && !raf) raf = requestAnimationFrame(step)
+    }
+    document.addEventListener('dragover', onDragOver)
+    return () => {
+      document.removeEventListener('dragover', onDragOver)
+      if (raf) cancelAnimationFrame(raf)
+    }
+  }, [dragToolId])
 
   const q = query.trim().toLowerCase()
   const matchesQuery = (t) =>
@@ -153,84 +256,237 @@ function HomePage({ onSelectTool }) {
     t.description.toLowerCase().includes(q) ||
     t.tags.some((tag) => tag.toLowerCase().includes(q))
 
-  const toolsInCategory = (catId) =>
-    tools.filter((t) => (t.category || 'tools') === catId && matchesQuery(t))
+  const toolsInCategory = (catId, applyQuery = true) =>
+    tools.filter((t) => resolveCat(t) === catId && (!applyQuery || matchesQuery(t)))
 
+  // --- Category management ---
+  const addCategory = () => {
+    const id = `cat_${Date.now().toString(36)}`
+    const next = [...categories, { id, label: '新分类' }]
+    setCategories(next)
+    persist(next, assignments)
+  }
+
+  const renameCategory = (id, label) => {
+    const next = categories.map((c) => (c.id === id ? { ...c, label } : c))
+    setCategories(next)
+  }
+
+  const deleteCategory = (id) => {
+    if (categories.length <= 1) return
+    const remaining = categories.filter((c) => c.id !== id)
+    const fallback = remaining[0].id
+    // Reassign every tool currently resolving to the deleted category.
+    const nextAssignments = { ...assignments }
+    tools.forEach((t) => {
+      if (resolveCat(t) === id) nextAssignments[t.id] = fallback
+    })
+    setCategories(remaining)
+    setAssignments(nextAssignments)
+    persist(remaining, nextAssignments)
+  }
+
+  const moveCategory = (id, dir) => {
+    const idx = categories.findIndex((c) => c.id === id)
+    const swap = idx + dir
+    if (idx < 0 || swap < 0 || swap >= categories.length) return
+    const next = [...categories]
+    ;[next[idx], next[swap]] = [next[swap], next[idx]]
+    setCategories(next)
+    persist(next, assignments)
+  }
+
+  const assignTool = (toolId, catId) => {
+    if (!catId || resolveCat(tools.find((t) => t.id === toolId)) === catId) return
+    const next = { ...assignments, [toolId]: catId }
+    setAssignments(next)
+    persist(categories, next)
+  }
+
+  const renderToolCard = (tool) => (
+    <div
+      key={tool.id}
+      className={`tool-card${editMode ? ' tool-card-editing' : ''}${
+        dragToolId === tool.id ? ' tool-card-dragging' : ''
+      }`}
+      onClick={() => !editMode && onSelectTool(tool.id)}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => !editMode && e.key === 'Enter' && onSelectTool(tool.id)}
+      draggable={editMode}
+      onDragStart={(e) => {
+        if (!editMode) return
+        setDragToolId(tool.id)
+        e.dataTransfer.effectAllowed = 'move'
+        e.dataTransfer.setData('text/plain', tool.id)
+      }}
+      onDragEnd={() => {
+        setDragToolId(null)
+        setDropCat(null)
+      }}
+    >
+      {editMode && <div className="tool-card-grip" title="拖动到其他分类">⠿</div>}
+      <div className="tool-card-icon">{tool.icon}</div>
+      <div className="tool-card-body">
+        <h3>{tool.title}</h3>
+        <p>{tool.description}</p>
+        <div className="tool-tags">
+          {tool.tags.map((tag) => (
+            <span key={tag} className="tool-tag">
+              {tag}
+            </span>
+          ))}
+        </div>
+      </div>
+      {!editMode && <div className="tool-card-arrow">→</div>}
+    </div>
+  )
 
   return (
     <div className="home-page">
       <div className="home-intro">
         <p>Choose a tool to get started.</p>
       </div>
-      <div className="home-search-bar">
-        <span className="home-search-icon">🔍</span>
-        <input
-          type="text"
-          className="home-search-input"
-          placeholder="Filter tools..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        {query && (
-          <button className="home-search-clear" onClick={() => setQuery('')} aria-label="Clear">
-            ✕
-          </button>
+
+      <div className="home-toolbar">
+        {!editMode && (
+          <div className="home-search-bar">
+            <span className="home-search-icon">🔍</span>
+            <input
+              type="text"
+              className="home-search-input"
+              placeholder="Filter tools..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            {query && (
+              <button className="home-search-clear" onClick={() => setQuery('')} aria-label="Clear">
+                ✕
+              </button>
+            )}
+          </div>
         )}
+        <button
+          className={`btn-outline btn-sm home-edit-btn${editMode ? ' active' : ''}`}
+          onClick={() => {
+            if (editMode) {
+              setEditMode(false)
+            } else {
+              enterEditMode()
+            }
+          }}
+        >
+          {editMode ? '✓ 完成' : '✎ 管理分类'}
+        </button>
       </div>
-      <div className="category-tabs">
-        {categories.map((cat) => {
-          const count = toolsInCategory(cat.id).length
-          return (
-            <button
-              key={cat.id}
-              className={`category-tab${activeCat === cat.id ? ' active' : ''}`}
-              onClick={() => setActiveCat(cat.id)}
-            >
-              {cat.label}
-              <span className="category-tab-count">{count}</span>
-            </button>
-          )
-        })}
-      </div>
-      {(() => {
-        const cat = categories.find((c) => c.id === activeCat) || categories[0]
-        const items = toolsInCategory(cat.id)
-        if (items.length === 0) {
-          return (
-            <p className="category-empty">
-              {q ? `No tools match \u201c${query}\u201d.` : cat.emptyHint || '暂无工具。'}
-            </p>
-          )
-        }
-        return (
-          <div className="tools-grid">
-            {items.map((tool) => (
+
+      {editMode ? (
+        <div className="category-editor">
+          <p className="category-editor-hint">
+            拖动工具卡片到任意分类即可归类。可新建、重命名、删除或调整分类顺序。
+          </p>
+          {categories.map((cat, i) => {
+            const items = toolsInCategory(cat.id, false)
+            return (
               <div
-                key={tool.id}
-                className="tool-card"
-                onClick={() => onSelectTool(tool.id)}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => e.key === 'Enter' && onSelectTool(tool.id)}
+                key={cat.id}
+                className={`category-section${dropCat === cat.id ? ' drag-over' : ''}`}
+                onDragOver={(e) => {
+                  if (!dragToolId) return
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = 'move'
+                  if (dropCat !== cat.id) setDropCat(cat.id)
+                }}
+                onDragLeave={(e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget)) setDropCat(null)
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  const id = dragToolId || e.dataTransfer.getData('text/plain')
+                  if (id) assignTool(id, cat.id)
+                  setDragToolId(null)
+                  setDropCat(null)
+                }}
               >
-                <div className="tool-card-icon">{tool.icon}</div>
-                <div className="tool-card-body">
-                  <h3>{tool.title}</h3>
-                  <p>{tool.description}</p>
-                  <div className="tool-tags">
-                    {tool.tags.map((tag) => (
-                      <span key={tag} className="tool-tag">
-                        {tag}
-                      </span>
-                    ))}
+                <div className="category-section-head">
+                  <input
+                    className="category-name-input"
+                    value={cat.label}
+                    onChange={(e) => renameCategory(cat.id, e.target.value)}
+                    onBlur={() => persist(categories, assignments)}
+                  />
+                  <span className="category-section-count">{items.length}</span>
+                  <div className="category-section-actions">
+                    <button
+                      className="cat-icon-btn"
+                      disabled={i === 0}
+                      onClick={() => moveCategory(cat.id, -1)}
+                      title="上移"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      className="cat-icon-btn"
+                      disabled={i === categories.length - 1}
+                      onClick={() => moveCategory(cat.id, 1)}
+                      title="下移"
+                    >
+                      ↓
+                    </button>
+                    <button
+                      className="cat-icon-btn cat-icon-danger"
+                      disabled={categories.length <= 1}
+                      onClick={() => deleteCategory(cat.id)}
+                      title="删除分类"
+                    >
+                      🗑
+                    </button>
                   </div>
                 </div>
-                <div className="tool-card-arrow">→</div>
+                {items.length === 0 ? (
+                  <p className="category-drop-empty">把工具拖到这里</p>
+                ) : (
+                  <div className="tools-grid">{items.map(renderToolCard)}</div>
+                )}
               </div>
-            ))}
+            )
+          })}
+          <button className="category-add-btn" onClick={addCategory}>
+            + 新建分类
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="category-tabs">
+            {categories.map((cat) => {
+              const count = toolsInCategory(cat.id).length
+              return (
+                <button
+                  key={cat.id}
+                  className={`category-tab${activeCat === cat.id ? ' active' : ''}`}
+                  onClick={() => setActiveCat(cat.id)}
+                >
+                  {cat.label}
+                  <span className="category-tab-count">{count}</span>
+                </button>
+              )
+            })}
           </div>
-        )
-      })()}
+          {(() => {
+            const cat = categories.find((c) => c.id === activeCat) || categories[0]
+            if (!cat) return null
+            const items = toolsInCategory(cat.id)
+            if (items.length === 0) {
+              return (
+                <p className="category-empty">
+                  {q ? `No tools match \u201c${query}\u201d.` : emptyHints[cat.id] || '暂无工具。'}
+                </p>
+              )
+            }
+            return <div className="tools-grid">{items.map(renderToolCard)}</div>
+          })()}
+        </>
+      )}
     </div>
   )
 }
